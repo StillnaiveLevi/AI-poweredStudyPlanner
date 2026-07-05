@@ -3,14 +3,25 @@ let subjects = [];
 let currentView = "grid";
 let deleteTargetId = null;
 
-// ── Bootstrap modal instances ──────────────────────────
+// Auth guard 
+const token = localStorage.getItem("token");
+if (!token) window.location.href = "signup.html";
+
+function authHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`
+  };
+}
+
+// Bootstrap modal instances 
 const subjectModal = new bootstrap.Modal(document.getElementById("subjectModal"));
 const deleteModal  = new bootstrap.Modal(document.getElementById("deleteModal"));
 
-// ── Fetch and render all subjects ─────────────────────
+// Fetch and render all subjects 
 async function loadSubjects() {
   try {
-    const res = await fetch(API);
+    const res = await fetch(API, { headers: authHeaders() });
     if (!res.ok) throw new Error("Failed to fetch");
     subjects = await res.json();
     renderCards(subjects);
@@ -21,7 +32,7 @@ async function loadSubjects() {
   }
 }
 
-// ── Render cards ───────────────────────────────────────
+// Render cards 
 function renderCards(data) {
   const grid = document.getElementById("subjectsGrid");
   grid.innerHTML = "";
@@ -75,7 +86,7 @@ function renderCards(data) {
   grid.appendChild(placeholder);
 }
 
-// ── Icon guesser (based on subject name keywords) ─────
+// Icon guesser (based on subject name keywords) 
 function guessIcon(name) {
   const n = name.toLowerCase();
   if (n.includes("math") || n.includes("calculus") || n.includes("algebra")) return "bi-calculator";
@@ -87,7 +98,7 @@ function guessIcon(name) {
   return "bi-journal-text";
 }
 
-// ── Category label guesser ────────────────────────────
+//  Category label guesser 
 function guessCategoryLabel(name, desc) {
   const n = (name + " " + (desc || "")).toLowerCase();
   if (n.includes("computer") || n.includes("algorithm") || n.includes("software")) return "Computer Science";
@@ -99,7 +110,7 @@ function guessCategoryLabel(name, desc) {
   return "General";
 }
 
-// ── Category CSS class ────────────────────────────────
+// Category CSS class 
 function getCatClass(label) {
   const l = label.toLowerCase();
   if (l.includes("computer"))  return "cat-cs";
@@ -109,7 +120,7 @@ function getCatClass(label) {
   return "cat-default";
 }
 
-// ── AI Insight ─────────────────────────────────────────
+// AI Insight 
 function renderAiInsight(data) {
   if (data.length < 2) return;
   const highest = [...data].sort((a, b) => b.mastery - a.mastery)[0];
@@ -121,7 +132,7 @@ function renderAiInsight(data) {
     `<strong style="color:#1e40af">${lowest.name}</strong> this week to balance your cognitive load.`;
 }
 
-// ── View toggle ────────────────────────────────────────
+// View toggle 
 function setView(view) {
   currentView = view;
   document.getElementById("gridViewBtn").classList.toggle("active", view === "grid");
@@ -129,7 +140,7 @@ function setView(view) {
   document.getElementById("subjectsGrid").classList.toggle("list-view", view === "list");
 }
 
-// ── Search ─────────────────────────────────────────────
+// Search 
 document.getElementById("searchInput").addEventListener("input", function () {
   const q = this.value.toLowerCase();
   renderCards(subjects.filter(s =>
@@ -137,7 +148,7 @@ document.getElementById("searchInput").addEventListener("input", function () {
   ));
 });
 
-// ── Add modal ──────────────────────────────────────────
+// Add modal 
 function openAddModal() {
   document.getElementById("subjectModalLabel").textContent = "Add Subject";
   document.getElementById("editSubjectId").value = "";
@@ -146,7 +157,7 @@ function openAddModal() {
   subjectModal.show();
 }
 
-// ── Edit modal ─────────────────────────────────────────
+//  Edit modal 
 function openEditModal(id) {
   const s = subjects.find(x => x.id === id);
   if (!s) return;
@@ -157,7 +168,7 @@ function openEditModal(id) {
   subjectModal.show();
 }
 
-// ── Save (add or update) ───────────────────────────────
+// Save (add or update)
 async function saveSubject() {
   const id   = document.getElementById("editSubjectId").value;
   const name = document.getElementById("subjectName").value.trim();
@@ -172,7 +183,7 @@ async function saveSubject() {
     const method = id ? "PUT" : "POST";
     const res    = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error(await res.text());
@@ -183,7 +194,7 @@ async function saveSubject() {
   }
 }
 
-// ── Delete ─────────────────────────────────────────────
+// Delete
 function openDeleteModal(id) {
   deleteTargetId = id;
   deleteModal.show();
@@ -192,7 +203,7 @@ function openDeleteModal(id) {
 document.getElementById("confirmDeleteBtn").addEventListener("click", async () => {
   if (!deleteTargetId) return;
   try {
-    const res = await fetch(`${API}/${deleteTargetId}`, { method: "DELETE" });
+    const res = await fetch(`${API}/${deleteTargetId}`, { method: "DELETE", headers: authHeaders() });
     if (!res.ok) throw new Error(await res.text());
     deleteModal.hide();
     deleteTargetId = null;
@@ -202,5 +213,5 @@ document.getElementById("confirmDeleteBtn").addEventListener("click", async () =
   }
 });
 
-// ── Init ───────────────────────────────────────────────
+
 loadSubjects();
