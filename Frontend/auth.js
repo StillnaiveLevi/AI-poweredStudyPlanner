@@ -1,4 +1,33 @@
 const API = "http://127.0.0.1:5000/api";
+const GOOGLE_CLIENT_ID = "386974513802-3fft4qo6qjpbmi5ejc5iqrudi27ft8q4.apps.googleusercontent.com";
+
+// ── Google Sign-In ─────────────────────────────────────
+function handleGoogleSignIn() {
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential
+  });
+  google.accounts.id.prompt(); // shows the Google One Tap popup
+}
+
+async function handleGoogleCredential(response) {
+  // response.credential is a JWT ID token from Google
+  try {
+    const res  = await fetch(`${API}/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Google sign-in failed.");
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    window.location.href = "subjects.html";
+  } catch (err) {
+    alert("Google sign-in error: " + err.message);
+  }
+}
 
 //  Toggle password visibility 
 function togglePassword(fieldId, btn) {
