@@ -289,3 +289,22 @@ body {
 .auth-alert.show { display: block; }
 .auth-alert.success { background: #d1fae5; color: #065f46; }
 .auth-alert.error   { background: #fee2e2; color: #991b1b; }
+
+/* Login page icon */
+.login-icon-wrap {
+  width: 52px; height: 52px;
+  background: #eef1fb;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; color: #1e3a8a;
+  margin: 0 auto 16px;
+}
+
+/* Forgot password link */
+.forgot-link {
+  font-size: 0.78rem;
+  color: #1e3a8a;
+  text-decoration: none;
+  font-weight: 500;
+}
+.forgot-link:hover { text-decoration: underline; }
