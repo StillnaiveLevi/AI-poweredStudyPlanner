@@ -16,6 +16,11 @@ CORS(app)
 
 JWT_SECRET        = os.environ.get("JWT_SECRET")
 GOOGLE_CLIENT_ID  = os.environ.get("GOOGLE_CLIENT_ID")
+RESEND_API_KEY    = os.environ.get("RESEND_API_KEY")
+FRONTEND_URL      = os.environ.get("FRONTEND_URL", "http://127.0.0.1:5500")
+
+import resend
+resend.api_key = RESEND_API_KEY
 
 
 # JWT helpers 
@@ -137,6 +142,116 @@ def google_auth():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def forgot_password():
+    data  = request.get_json()
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "Email is required."}), 400
+
+    try:
+        from dbConnection import get_connection
+        import secrets, datetime as dt
+        conn   = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id FROM public.users WHERE email=%s", (email,))
+        row = cursor.fetchone()
+
+        # Always return 200 — never reveal if email exists
+        if not row:
+            cursor.close(); conn.close()
+            return jsonify({"message": "If that email exists, a reset link was sent."}), 200
+
+        user_id    = str(row[0])
+        token      = secrets.token_urlsafe(48)
+        expires_at = dt.datetime.utcnow() + dt.timedelta(hours=1)
+
+        cursor.execute(
+            "UPDATE public.password_resets SET used=TRUE WHERE user_id=%s AND used=FALSE",
+            (user_id,)
+        )
+        cursor.execute("""
+            INSERT INTO public.password_resets (user_id, token, expires_at)
+            VALUES (%s, %s, %s)
+        """, (user_id, token, expires_at))
+        conn.commit()
+        cursor.close(); conn.close()
+
+        reset_url = f"{FRONTEND_URL}/reset_password.html?token={token}"
+
+        resend.Emails.send({
+            "from":    "AuraStudy <onboarding@resend.dev>",
+            "to":      [email],
+            "subject": "Reset your AuraStudy password",
+            "html":    f"""
+                <div style="font-family:sans-serif;max-width:480px;margin:auto;">
+                  <h2 style="color:#0d1b4b;">Reset your password</h2>
+                  <p>We received a request to reset your password.
+                     Click the button below — the link expires in <strong>1 hour</strong>.</p>
+                  <a href="{reset_url}"
+                     style="display:inline-block;padding:12px 28px;background:#1e3a8a;color:#fff;
+                            border-radius:8px;text-decoration:none;font-weight:700;margin:16px 0;">
+                    Reset Password
+                  </a>
+                  <p style="color:#888;font-size:0.82rem;">
+                    If you didn't request this, you can safely ignore this email.
+                  </p>
+                </div>
+            """
+        })
+
+        return jsonify({"message": "If that email exists, a reset link was sent."}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def reset_password():
+    data         = request.get_json()
+    token        = data.get("token", "")
+    new_password = data.get("new_password", "")
+
+    if not token or not new_password:
+        return jsonify({"error": "Token and new password are required."}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters."}), 400
+
+    try:
+        from dbConnection import get_connection
+        import datetime as dt
+        conn   = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT user_id, expires_at, used
+            FROM   public.password_resets
+            WHERE  token = %s
+        """, (token,))
+        row = cursor.fetchone()
+
+        if not row:
+            cursor.close(); conn.close()
+            return jsonify({"error": "Invalid or expired reset link."}), 410
+
+        user_id, expires_at, used = row
+
+        if used or expires_at.replace(tzinfo=None) < dt.datetime.utcnow():
+            cursor.close(); conn.close()
+            return jsonify({"error": "This reset link has expired."}), 410
+
+        pw_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+        cursor.execute("UPDATE public.users SET password_hash=%s WHERE id=%s", (pw_hash, user_id))
+        cursor.execute("UPDATE public.password_resets SET used=TRUE WHERE token=%s", (token,))
+        conn.commit()
+        cursor.close(); conn.close()
+
+        return jsonify({"message": "Password reset successfully."}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 #  SUBJECTS ENDPOINTS  (protected)
