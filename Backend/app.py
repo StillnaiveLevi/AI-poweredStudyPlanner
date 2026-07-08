@@ -8,6 +8,7 @@ from google.auth.transport import requests as google_requests
 
 import subjectDao
 import authDao
+import dashboardDao
 
 load_dotenv()
 
@@ -302,6 +303,50 @@ def remove_subject(subject_id):
     try:
         subjectDao.delete_subject(subject_id)
         return jsonify({"message": "Subject deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+#  DASHBOARD ENDPOINTS  (protected)
+
+@app.route("/api/dashboard/weekly-focus", methods=["GET"])
+@require_auth
+def weekly_focus():
+    try:
+        data = dashboardDao.get_weekly_focus(request.user_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/dashboard/schedule", methods=["GET"])
+@require_auth
+def weekly_schedule():
+    try:
+        offset = int(request.args.get("week_offset", 0))
+        data   = dashboardDao.get_weekly_schedule(request.user_id, offset)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/dashboard/high-priority", methods=["GET"])
+@require_auth
+def high_priority():
+    try:
+        data = dashboardDao.get_high_priority_tasks(request.user_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/dashboard/ai-insight", methods=["GET"])
+@require_auth
+def ai_insight():
+    try:
+        data = dashboardDao.get_ai_insight(request.user_id)
+        return jsonify(data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
