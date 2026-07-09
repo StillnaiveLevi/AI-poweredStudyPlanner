@@ -9,6 +9,8 @@ from google.auth.transport import requests as google_requests
 import subjectDao
 import authDao
 import dashboardDao
+import taskDao
+import taskDao
 
 load_dotenv()
 
@@ -347,6 +349,105 @@ def ai_insight():
     try:
         data = dashboardDao.get_ai_insight(request.user_id)
         return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+#  TASK ENDPOINTS  (protected)
+
+@app.route("/api/tasks", methods=["GET"])
+@require_auth
+def get_tasks():
+    subject_id = request.args.get("subject_id")
+    priority   = request.args.get("priority")
+    sort_by    = request.args.get("sort_by", "due_date")
+    kanban     = request.args.get("kanban", "false").lower() == "true"
+    try:
+        if kanban:
+            tasks = taskDao.get_all_tasks_including_completed(request.user_id)
+        else:
+            tasks = taskDao.get_all_tasks(request.user_id, subject_id, priority, sort_by)
+        return jsonify(tasks), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks/subject-counts", methods=["GET"])
+@require_auth
+def task_subject_counts():
+    try:
+        data = taskDao.get_tasks_by_subject_counts(request.user_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks/heatmap", methods=["GET"])
+@require_auth
+def task_heatmap():
+    try:
+        data = taskDao.get_deadline_heatmap(request.user_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks", methods=["POST"])
+@require_auth
+def create_task():
+    data = request.get_json()
+    try:
+        new_id = taskDao.add_task(
+            subject_id        = data["subject_id"],
+            title             = data["title"],
+            description       = data.get("description", ""),
+            due_date          = data["due_date"],
+            priority          = data.get("priority", "medium"),
+            status            = data.get("status", "pending"),
+            estimated_minutes = data.get("estimated_minutes")
+        )
+        return jsonify({"id": new_id, "message": "Task created"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks/<task_id>", methods=["PUT"])
+@require_auth
+def edit_task(task_id):
+    data = request.get_json()
+    try:
+        taskDao.update_task(
+            task_id           = task_id,
+            title             = data["title"],
+            description       = data.get("description", ""),
+            due_date          = data["due_date"],
+            priority          = data.get("priority", "medium"),
+            status            = data.get("status", "pending"),
+            estimated_minutes = data.get("estimated_minutes")
+        )
+        return jsonify({"message": "Task updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks/<task_id>/status", methods=["PATCH"])
+@require_auth
+def patch_task_status(task_id):
+    data = request.get_json()
+    try:
+        taskDao.update_task_status(task_id, data["status"])
+        return jsonify({"message": "Status updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tasks/<task_id>", methods=["DELETE"])
+@require_auth
+def remove_task(task_id):
+    try:
+        taskDao.delete_task(task_id)
+        return jsonify({"message": "Task deleted"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
