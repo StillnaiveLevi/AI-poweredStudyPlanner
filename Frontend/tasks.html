@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AuraStudy – Tasks</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="tasks.css"/>
+</head>
+<body>
+<div class="d-flex" id="app-wrapper">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar d-flex flex-column">
+    <div class="sidebar-logo d-flex align-items-center gap-2">
+      <div class="logo-icon"><i class="bi bi-stars"></i></div>
+      <div>
+        <div class="logo-title">AuraStudy</div>
+        <div class="logo-sub">Cognitive Clarity</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav flex-grow-1 mt-3">
+      <a href="dashboard.html" class="nav-item"><i class="bi bi-grid"></i> Dashboard</a>
+      <a href="subjects.html"  class="nav-item"><i class="bi bi-journal-bookmark-fill"></i> Subjects</a>
+      <a href="tasks.html"     class="nav-item active"><i class="bi bi-list-task"></i> Task List</a>
+      <a href="#"              class="nav-item"><i class="bi bi-stopwatch"></i> Study Timer</a>
+      <a href="#"              class="nav-item"><i class="bi bi-person"></i> Profile</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-start-session w-100 mb-3">
+        <i class="bi bi-play-fill me-1"></i> Start Session
+      </button>
+      <a href="#" class="nav-item"><i class="bi bi-gear"></i> Settings</a>
+      <a href="#" class="nav-item"><i class="bi bi-question-circle"></i> Help</a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content flex-grow-1 d-flex flex-column">
+
+    <!-- Top bar -->
+    <div class="topbar d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-3">
+        <a href="dashboard.html" class="logo-text">AuraStudy</a>
+        <div class="topbar-tabs">
+          <a href="dashboard.html" class="tab-link">Dashboard</a>
+          <a href="subjects.html"  class="tab-link">Subjects</a>
+          <a href="tasks.html"     class="tab-link active">Tasks</a>
+          <a href="#"              class="tab-link">Sessions</a>
+        </div>
+      </div>
+      <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" placeholder="Search tasks..."/>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="icon-btn"><i class="bi bi-bell"></i></button>
+        <button class="icon-btn"><i class="bi bi-gear"></i></button>
+        <img src="https://i.pravatar.cc/36" class="avatar" alt="avatar"/>
+        <button class="btn-new-task" onclick="openAddModal()">
+          <i class="bi bi-plus-lg"></i> New Task
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="tasks-body">
+
+      <!-- Left panel -->
+      <aside class="tasks-left">
+
+        <!-- Daily Progress -->
+        <div class="side-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="side-card-title" style="color:#1e3a8a;">Daily Progress</div>
+              <div class="side-card-sub">Cognitive Load: Balanced</div>
+            </div>
+            <a href="#" class="see-all-link">analytics</a>
+          </div>
+          <div class="d-flex justify-content-between mt-3 mb-1">
+            <span class="small-label">Tasks Completed</span>
+            <span class="small-label fw-bold" id="progressCount">–/–</span>
+          </div>
+          <div class="progress mb-3" style="height:6px;">
+            <div class="progress-bar" id="progressBar" style="width:0%; background:#1e3a8a;"></div>
+          </div>
+          <div class="ai-tip-box">
+            <i class="bi bi-stars me-1" style="color:#1e3a8a;"></i>
+            <span id="aiTipText">Loading AI insight…</span>
+          </div>
+        </div>
+
+        <!-- Filter by Subject -->
+        <div class="side-card">
+          <div class="side-card-title mb-3">FILTER BY SUBJECT</div>
+          <div id="subjectFilter">
+            <div class="subject-filter-item active" data-id="all" onclick="filterBySubject('all', this)">
+              <span class="subject-dot" style="background:#1e3a8a;"></span>
+              <span class="subject-name">All Subjects</span>
+              <span class="subject-count" id="totalCount">–</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deadline Heatmap -->
+        <div class="side-card">
+          <div class="side-card-title mb-3">DEADLINE HEATMAP</div>
+          <div class="heatmap-row" id="heatmapRow">
+            <!-- 7 blocks injected by JS -->
+          </div>
+          <div class="heatmap-label" id="heatmapLabel">Loading…</div>
+        </div>
+
+      </aside>
+
+      <!-- Right panel -->
+      <div class="tasks-right">
+
+        <!-- Header -->
+        <div class="tasks-header d-flex align-items-start justify-content-between mb-3">
+          <div>
+            <h2 class="tasks-title">Active Study Tasks</h2>
+            <p class="tasks-sub">Focusing on clarity and completion.</p>
+          </div>
+          <div class="view-toggle">
+            <button class="toggle-btn active" id="listViewBtn" onclick="setView('list')">List View</button>
+            <button class="toggle-btn" id="kanbanViewBtn" onclick="setView('kanban')">Kanban</button>
+          </div>
+        </div>
+
+        <!-- Filters bar -->
+        <div class="filters-bar d-flex align-items-center gap-2 mb-4">
+          <div class="filter-chip" id="sortChip" onclick="cycleSort()">
+            <i class="bi bi-sort-down"></i> <span id="sortLabel">Due Date</span>
+          </div>
+          <div class="filter-chip" id="priorityChip" onclick="cyclePriority()">
+            <i class="bi bi-flag"></i> <span id="priorityLabel">All Priority</span>
+          </div>
+          <button class="btn-create-task" onclick="openAddModal()">
+            <i class="bi bi-plus-lg me-1"></i> Create Task
+          </button>
+        </div>
+
+        <!-- List View -->
+        <div id="listView">
+          <div class="task-section">
+            <div class="section-label">TODAY</div>
+            <div id="todayTasks"></div>
+          </div>
+          <div class="task-section mt-3">
+            <div class="section-label">UPCOMING</div>
+            <div id="upcomingTasks"></div>
+          </div>
+        </div>
+
+        <!-- KANBAN View -->
+        <div id="kanbanView" style="display:none;">
+          <div class="kanban-board">
+            <div class="kanban-col">
+              <div class="kanban-col-header pending-header">Pending</div>
+              <div class="kanban-cards" id="kanbanPending"></div>
+            </div>
+            <div class="kanban-col">
+              <div class="kanban-col-header inprogress-header">In Progress</div>
+              <div class="kanban-cards" id="kanbanInProgress"></div>
+            </div>
+            <div class="kanban-col">
+              <div class="kanban-col-header completed-header">Completed</div>
+              <div class="kanban-cards" id="kanbanCompleted"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal fade" id="taskModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="taskModalLabel">Create Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editTaskId"/>
+        <div class="mb-3">
+          <label class="form-label">Title</label>
+          <input type="text" class="form-control" id="taskTitle" placeholder="e.g. Complex Integral Proofs"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Description <span class="text-muted">(optional)</span></label>
+          <textarea class="form-control" id="taskDesc" rows="2"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Subject</label>
+          <select class="form-select" id="taskSubject"></select>
+        </div>
+        <div class="row">
+          <div class="col mb-3">
+            <label class="form-label">Due Date & Time</label>
+            <input type="datetime-local" class="form-control" id="taskDue"/>
+          </div>
+          <div class="col mb-3">
+            <label class="form-label">Est. Minutes</label>
+            <input type="number" class="form-control" id="taskMins" min="5" placeholder="45"/>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col mb-3">
+            <label class="form-label">Priority</label>
+            <select class="form-select" id="taskPriority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div class="col mb-3">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="taskStatus">
+              <option value="pending" selected>Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" onclick="saveTask()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DELETE CONFIRM ═══════════ -->
+<div class="modal fade" id="deleteTaskModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Delete Task</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">Are you sure you want to delete this task?</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="confirmDeleteTaskBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating add button (mobile) -->
+<button class="fab" onclick="openAddModal()"><i class="bi bi-plus-lg"></i></button>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="tasks.js"></script>
+</body>
+</html>
