@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AuraStudy – Study Timer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="study_timer.css"/>
+</head>
+<body>
+<div class="d-flex" id="app-wrapper">
+
+  <!-- Sidebar -->
+  <aside class="sidebar d-flex flex-column">
+    <div class="sidebar-logo d-flex align-items-center gap-2">
+      <div class="logo-icon"><i class="bi bi-stars"></i></div>
+      <div>
+        <div class="logo-title">AuraStudy</div>
+        <div class="logo-sub">Cognitive Clarity</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav flex-grow-1 mt-3">
+      <a href="dashboard.html"   class="nav-item"><i class="bi bi-grid"></i> Dashboard</a>
+      <a href="subjects.html"    class="nav-item"><i class="bi bi-journal-bookmark-fill"></i> Subjects</a>
+      <a href="tasks.html"       class="nav-item"><i class="bi bi-list-task"></i> Task List</a>
+      <a href="study_timer.html" class="nav-item active"><i class="bi bi-stopwatch"></i> Study Timer</a>
+      <a href="#"                class="nav-item"><i class="bi bi-person"></i> Profile</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-start-session w-100 mb-3" id="sidebarStartBtn">
+        <i class="bi bi-play-fill me-1"></i> Start Session
+      </button>
+      <a href="#" class="nav-item"><i class="bi bi-gear"></i> Settings</a>
+      <a href="#" class="nav-item"><i class="bi bi-question-circle"></i> Help</a>
+    </div>
+  </aside>
+
+  <!--Main  -->
+  <main class="main-content flex-grow-1 d-flex flex-column">
+
+    <div class="timer-body">
+
+      <!-- Active task picker -->
+      <div class="active-task-card" id="activeTaskCard" onclick="openTaskPicker()">
+        <div class="active-task-icon"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="active-task-info">
+          <div class="active-task-label">ACTIVE TASK</div>
+          <div class="active-task-title" id="activeTaskTitle">Select a task…</div>
+          <div class="active-task-sub"   id="activeTaskSub">Click to choose</div>
+        </div>
+        <i class="bi bi-chevron-right active-task-chevron"></i>
+      </div>
+
+      <!-- Timer ring + display -->
+      <div class="timer-ring-wrap">
+        <svg class="timer-ring" viewBox="0 0 220 220">
+          <circle class="ring-bg"   cx="110" cy="110" r="100"/>
+          <circle class="ring-fill" cx="110" cy="110" r="100" id="ringFill"/>
+        </svg>
+        <div class="timer-display" id="timerDisplay">25:00</div>
+      </div>
+
+      <!-- Mode label -->
+      <div class="mode-label">
+        <span class="mode-dot" id="modeDot"></span>
+        <span id="modeLabel">DEEP FOCUS MODE</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="timer-controls">
+        <button class="ctrl-btn" id="resetBtn" title="Reset" onclick="resetTimer()">
+          <i class="bi bi-arrow-counterclockwise"></i>
+        </button>
+        <button class="btn-start-main" id="startStopBtn" onclick="toggleTimer()">
+          <i class="bi bi-play-fill me-1" id="startStopIcon"></i>
+          <span id="startStopLabel">Start Session</span>
+        </button>
+        <button class="ctrl-btn" id="settingsBtn" title="Settings"
+                data-bs-toggle="modal" data-bs-target="#timerSettingsModal">
+          <i class="bi bi-sliders"></i>
+        </button>
+      </div>
+
+      <!-- Stats row -->
+      <div class="timer-stats-row">
+
+        <!-- Total duration card -->
+        <div class="stat-card">
+          <div class="stat-card-label"><i class="bi bi-clock me-1"></i>Total Duration</div>
+          <div class="stat-card-value">
+            <span id="goalMinutes">45</span> min
+            <span class="stat-card-sub">goal</span>
+          </div>
+          <div class="progress mt-2" style="height: 5px;">
+            <div class="progress-bar goal-bar" id="goalBar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- AI Insight card -->
+        <div class="stat-card ai-card">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="ai-badge-icon"><i class="bi bi-stars"></i></div>
+            <span class="ai-badge-text">AI Insight</span>
+          </div>
+          <p class="ai-insight-text" id="aiInsightText">
+            "Your cognitive rhythm suggests you're most productive now.
+             Try maintaining this session for another 15 minutes before a break."
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="timer-footer">
+      <span class="footer-brand">AuraStudy AI. Designed for Focus.</span>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Research Docs</a>
+      </div>
+      <span class="footer-copy">© 2024 AuraStudy AI</span>
+    </footer>
+
+  </main>
+</div>
+
+<!-- Task Picker Modal -->
+<div class="modal fade" id="taskPickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Select Active Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="task-picker-search px-3 pt-3 pb-2">
+          <input type="text" class="form-control" id="taskPickerSearch"
+                 placeholder="Search tasks…" oninput="filterPickerTasks()"/>
+        </div>
+        <div id="taskPickerList" class="task-picker-list">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="clearActiveTask()">
+          No Task (Free Session)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="timerSettingsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Timer Settings</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Session Duration (minutes)</label>
+          <input type="number" class="form-control" id="settingDuration"
+                 min="1" max="180" value="25"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Goal Duration (minutes)</label>
+          <input type="number" class="form-control" id="settingGoal"
+                 min="1" max="480" value="45"/>
+        </div>
+        <div class="mb-0">
+          <label class="form-label">Mode</label>
+          <select class="form-select" id="settingMode">
+            <option value="Deep Focus">Deep Focus</option>
+            <option value="Light Review">Light Review</option>
+            <option value="Practice">Practice</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="applySettings()">Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="study_timer.js"></script>
+</body>
+</html>
