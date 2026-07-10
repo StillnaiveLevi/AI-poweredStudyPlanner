@@ -10,6 +10,7 @@ import subjectDao
 import authDao
 import dashboardDao
 import taskDao
+import sessionDao
 import taskDao
 
 load_dotenv()
@@ -448,6 +449,43 @@ def remove_task(task_id):
     try:
         taskDao.delete_task(task_id)
         return jsonify({"message": "Task deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+#  SESSION ENDPOINTS  (protected)
+@app.route("/api/sessions/start", methods=["POST"])
+@require_auth
+def session_start():
+    data = request.get_json()
+    try:
+        result = sessionDao.start_session(
+            user_id=request.user_id,
+            task_id=data.get("task_id")
+        )
+        return jsonify(result), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/sessions/<session_id>/end", methods=["PATCH"])
+@require_auth
+def session_end(session_id):
+    try:
+        result = sessionDao.end_session(session_id)
+        if not result:
+            return jsonify({"error": "Session not found"}), 404
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/sessions/recent", methods=["GET"])
+@require_auth
+def recent_sessions():
+    try:
+        data = sessionDao.get_recent_sessions(request.user_id)
+        return jsonify(data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
