@@ -11,6 +11,7 @@ import authDao
 import dashboardDao
 import taskDao
 import sessionDao
+import profileDao
 import taskDao
 
 load_dotenv()
@@ -486,6 +487,104 @@ def recent_sessions():
     try:
         data = sessionDao.get_recent_sessions(request.user_id)
         return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+#  PROFILE ENDPOINTS  (protected)
+@app.route("/api/profile", methods=["GET"])
+@require_auth
+def get_profile():
+    try:
+        data = profileDao.get_profile(request.user_id)
+        if not data:
+            return jsonify({"error": "User not found"}), 404
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/profile", methods=["PUT"])
+@require_auth
+def update_profile():
+    data = request.get_json()
+    name  = (data.get("name")  or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    if not name or not email:
+        return jsonify({"error": "Name and email are required."}), 400
+    try:
+        profileDao.update_profile(request.user_id, name, email)
+        return jsonify({"message": "Profile updated"}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/profile/avatar", methods=["POST"])
+@require_auth
+def upload_avatar():
+    import os
+    from werkzeug.utils import secure_filename
+    if "avatar" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["avatar"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
+    allowed = {"png", "jpg", "jpeg", "gif", "webp"}
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in allowed:
+        return jsonify({"error": "File type not allowed"}), 400
+
+    upload_dir = os.path.join(os.path.dirname(__file__), "..", "Frontend", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    filename = secure_filename(f"{request.user_id}.{ext}")
+    file.save(os.path.join(upload_dir, filename))
+
+    avatar_url = f"/uploads/{filename}"
+    profileDao.update_avatar(request.user_id, avatar_url)
+    return jsonify({"avatar_url": avatar_url}), 200
+
+
+@app.route("/api/profile/preferences", methods=["PUT"])
+@require_auth
+def update_preferences():
+    data = request.get_json()
+    try:
+        profileDao.update_preferences(request.user_id, data)
+        return jsonify({"message": "Preferences saved"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/profile/change-password", methods=["PUT"])
+@require_auth
+def change_password():
+    data         = request.get_json()
+    current_pw   = data.get("current_password", "")
+    new_pw       = data.get("new_password", "")
+
+    if not current_pw or not new_pw:
+        return jsonify({"error": "Both current and new password are required."}), 400
+    if len(new_pw) < 8:
+        return jsonify({"error": "New password must be at least 8 characters."}), 400
+
+    try:
+        user = authDao.find_user_by_email(
+            profileDao.get_profile(request.user_id)["email"]
+        )
+        if not user["password_hash"]:
+            return jsonify({"error": "This account uses Google sign-in."}), 400
+        if not bcrypt.checkpw(current_pw.encode(), user["password_hash"].encode()):
+            return jsonify({"error": "Current password is incorrect."}), 401
+
+        new_hash = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt()).decode()
+        profileDao.update_password(request.user_id, new_hash)
+        return jsonify({"message": "Password changed successfully."}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
