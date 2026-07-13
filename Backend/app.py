@@ -12,6 +12,7 @@ import dashboardDao
 import taskDao
 import sessionDao
 import profileDao
+import subscriptionDao
 import taskDao
 
 load_dotenv()
@@ -26,6 +27,9 @@ FRONTEND_URL      = os.environ.get("FRONTEND_URL", "http://127.0.0.1:5500")
 
 import resend
 resend.api_key = RESEND_API_KEY
+
+import stripe
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
 
 # JWT helpers 
@@ -587,6 +591,142 @@ def change_password():
         return jsonify({"message": "Password changed successfully."}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
+#  SUBSCRIPTION ENDPOINTS
+
+@app.route("/api/subscription", methods=["GET"])
+@require_auth
+def get_subscription():
+    try:
+        data = subscriptionDao.get_subscription(request.user_id)
+        return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/subscription/checkout", methods=["POST"])
+@require_auth
+def create_checkout():
+    """Create a Stripe Checkout session and return the URL."""
+    try:
+        profile = profileDao.get_profile(request.user_id)
+        sub     = subscriptionDao.get_subscription(request.user_id)
+
+        # Reuse or create Stripe customer
+        customer_id = sub.get("stripe_customer_id")
+        if not customer_id:
+            customer    = stripe.Customer.create(
+                email    = profile["email"],
+                metadata = {"user_id": request.user_id}
+            )
+            customer_id = customer.id
+
+        session = stripe.checkout.Session.create(
+            customer            = customer_id,
+            payment_method_types= ["card"],
+            line_items          = [{"price": os.environ.get("STRIPE_PRO_PRICE_ID"), "quantity": 1}],
+            mode                = "subscription",
+            success_url         = f"{FRONTEND_URL}/profile.html?upgrade=success",
+            cancel_url          = f"{FRONTEND_URL}/profile.html?upgrade=cancelled",
+            metadata            = {"user_id": request.user_id}
+        )
+
+        # Save customer id immediately
+        subscriptionDao.upsert_subscription(
+            user_id            = request.user_id,
+            plan               = sub.get("plan", "free"),
+            status             = sub.get("status", "active"),
+            stripe_customer_id = customer_id,
+            stripe_sub_id      = sub.get("stripe_sub_id")
+        )
+
+        return jsonify({"checkout_url": session.url}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/subscription/cancel", methods=["POST"])
+@require_auth
+def cancel_subscription():
+    try:
+        sub = subscriptionDao.get_subscription(request.user_id)
+        if not sub.get("stripe_sub_id"):
+            return jsonify({"error": "No active subscription found."}), 400
+
+        # Cancel at period end
+        stripe.Subscription.modify(
+            sub["stripe_sub_id"],
+            cancel_at_period_end=True
+        )
+        subscriptionDao.upsert_subscription(
+            user_id            = request.user_id,
+            plan               = sub["plan"],
+            status             = "cancelling",
+            stripe_customer_id = sub.get("stripe_customer_id"),
+            stripe_sub_id      = sub.get("stripe_sub_id"),
+            current_period_end = sub.get("current_period_end")
+        )
+        return jsonify({"message": "Subscription will cancel at period end."}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/webhook/stripe", methods=["POST"])
+def stripe_webhook():
+    """Stripe sends events here — update subscription status in DB."""
+    payload    = request.get_data()
+    sig_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+    except stripe.error.SignatureVerificationError:
+        return jsonify({"error": "Invalid signature"}), 400
+
+    data   = event["data"]["object"]
+    etype  = event["type"]
+
+    if etype == "checkout.session.completed":
+        user_id = data.get("metadata", {}).get("user_id")
+        sub_id  = data.get("subscription")
+        cus_id  = data.get("customer")
+        if user_id:
+            # Fetch subscription details from Stripe
+            stripe_sub = stripe.Subscription.retrieve(sub_id)
+            period_end = __import__('datetime').datetime.utcfromtimestamp(
+                stripe_sub["current_period_end"]
+            )
+            subscriptionDao.upsert_subscription(
+                user_id            = user_id,
+                plan               = "pro",
+                status             = "active",
+                stripe_customer_id = cus_id,
+                stripe_sub_id      = sub_id,
+                current_period_end = period_end
+            )
+
+    elif etype in ("customer.subscription.updated", "customer.subscription.deleted"):
+        cus_id  = data.get("customer")
+        user    = subscriptionDao.get_user_email_by_stripe_customer(cus_id)
+        if user:
+            status = "active" if data.get("status") == "active" else "cancelled"
+            plan   = "pro" if status == "active" else "free"
+            import datetime
+            period_end = datetime.datetime.utcfromtimestamp(
+                data.get("current_period_end", 0)
+            )
+            subscriptionDao.upsert_subscription(
+                user_id            = user["user_id"],
+                plan               = plan,
+                status             = status,
+                stripe_customer_id = cus_id,
+                stripe_sub_id      = data.get("id"),
+                current_period_end = period_end
+            )
+
+    return jsonify({"received": True}), 200
 
 
 if __name__ == "__main__":
